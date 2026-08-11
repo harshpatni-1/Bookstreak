@@ -19,6 +19,24 @@ const config: Config = {
         paper: {
           50: "#fbf8f1", 100: "#f5efe2", 200: "#ece2cd",
         },
+        // Semantic tokens backed by the CSS variables in globals.css. Using
+        // these instead of raw slate shades is what makes dark mode and
+        // high-contrast mode a single swap — and keeps text at AA contrast.
+        canvas: "rgb(var(--bg) / <alpha-value>)",
+        surface: {
+          DEFAULT: "rgb(var(--surface) / <alpha-value>)",
+          2: "rgb(var(--surface-2) / <alpha-value>)",
+        },
+        hairline: "rgb(var(--border) / <alpha-value>)",
+        fg: {
+          DEFAULT: "rgb(var(--fg) / <alpha-value>)",
+          muted: "rgb(var(--fg-muted) / <alpha-value>)",
+          subtle: "rgb(var(--fg-subtle) / <alpha-value>)",
+        },
+        accent: {
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
+          fg: "rgb(var(--accent-fg) / <alpha-value>)",
+        },
       },
       keyframes: {
         "pop-in": {

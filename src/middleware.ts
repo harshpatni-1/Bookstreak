@@ -7,6 +7,9 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // The Stripe webhook is excluded deliberately: it authenticates with a
+    // signature, not a session cookie, so running the auth redirect over it
+    // would bounce every delivery to /login.
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|api/billing/webhook|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

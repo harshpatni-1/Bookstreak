@@ -4,6 +4,8 @@ import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { importBooks, type ImportResult } from "@/app/(app)/actions";
 import { parseImportCsv, type ParseResult } from "@/lib/import/goodreads";
+import { LiveRegion, AlertIcon } from "@/components/icons";
+import { PaywallDialog, usePaywall } from "@/components/billing/PaywallDialog";
 
 type Step = "upload" | "preview" | "done";
 
@@ -13,19 +15,24 @@ export function ImportClient() {
   const [step, setStep] = useState<Step>("upload");
   const [parsed, setParsed] = useState<ParseResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
   const [result, setResult] = useState<ImportResult | null>(null);
   const [pending, start] = useTransition();
+  const paywall = usePaywall();
 
   function handleFile(file: File) {
     setError(null);
 
-    if (!file.name.endsWith(".csv")) {
-      setError("Please upload a .csv file (you can export one from Goodreads).");
+    // Case-insensitive: files arrive as .CSV from some Windows exports.
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setError(
+        "That file type won't work. Choose the .csv file you downloaded from Goodreads."
+      );
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setError("File is too large. Please keep it under 5 MB.");
+      setError("That file is too big. Please choose one under 5 MB.");
       return;
     }
 
@@ -37,7 +44,7 @@ export function ImportClient() {
 
         if (res.books.length === 0) {
           setError(
-            "No books found in this file. Make sure it has a header row with a \"Title\" column."
+            "No books found in this file. It needs a header row with a \"Title\" column."
           );
           return;
         }
@@ -45,10 +52,10 @@ export function ImportClient() {
         setParsed(res);
         setStep("preview");
       } catch {
-        setError("Couldn't read this file. Is it a valid CSV?");
+        setError("Couldn't read that file. Please check it's a CSV and try again.");
       }
     };
-    reader.onerror = () => setError("Couldn't read this file. Try again.");
+    reader.onerror = () => setError("Couldn't read that file. Please try again.");
     reader.readAsText(file);
   }
 
@@ -69,27 +76,56 @@ export function ImportClient() {
 
     start(async () => {
       const res = await importBooks({ books: parsed.books });
+
+      if (paywall.check(res)) return;
+
       if (!res.ok) {
-        setError(res.error ?? "Something went wrong.");
+        setError(res.error ?? "Something went wrong. Please try again.");
         return;
       }
       setResult(res);
+      setAnnouncement(
+        `Import finished. ${res.imported ?? 0} ${
+          (res.imported ?? 0) === 1 ? "book" : "books"
+        } added to your shelf.`
+      );
       setStep("done");
       router.refresh();
     });
   }
 
+  // Shared error presentation — an icon plus colour, never colour alone.
+  const errorBox = error && (
+    <p
+      role="alert"
+      className="flex items-start gap-2 rounded-xl border-2 border-rose-300 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800 dark:border-rose-500/50 dark:bg-rose-500/10 dark:text-rose-200"
+    >
+      <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
+      {error}
+    </p>
+  );
+
+  const paywallDialog = (
+    <PaywallDialog
+      open={paywall.isBlocked}
+      onClose={paywall.dismiss}
+      message={paywall.paywallMessage ?? undefined}
+    />
+  );
+
   // ─── Upload Step ───
   if (step === "upload") {
     return (
       <div className="space-y-4">
+        <LiveRegion message={announcement} />
+
         <div
-          className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-white px-6 py-12 text-center transition hover:border-brand-400 hover:bg-brand-50/30 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-brand-600"
+          className="tap flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-hairline bg-surface px-6 py-12 text-center transition hover:border-accent hover:bg-accent/5"
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
           role="button"
           tabIndex={0}
-          aria-label="Drop a CSV file here or click to browse"
+          aria-label="Choose a CSV file, or drop one here"
           onClick={() => fileRef.current?.click()}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
@@ -99,46 +135,45 @@ export function ImportClient() {
           }}
         >
           <div className="text-4xl" aria-hidden="true">📁</div>
-          <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">
-            Drop your CSV file here
+          <p className="mt-3 font-semibold text-fg">
+            Choose your CSV file
           </p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            or click to browse
+          <p className="mt-1 text-sm text-fg-subtle">
+            or drag and drop it here
           </p>
           <input
             ref={fileRef}
             type="file"
-            accept=".csv"
-            className="hidden"
+            accept=".csv,text/csv"
+            className="sr-only"
             onChange={handleInputChange}
             aria-label="Upload CSV file"
           />
         </div>
 
-        <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-900">
-          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-            How to export from Goodreads
+        <div className="rounded-2xl border-2 border-hairline bg-surface-2 p-4">
+          <h3 className="font-semibold text-fg">
+            How to get your file from Goodreads
           </h3>
-          <ol className="mt-2 list-inside list-decimal space-y-1 text-xs text-slate-500 dark:text-slate-400">
+          <ol className="mt-2 list-inside list-decimal space-y-1 text-sm text-fg-muted">
             <li>
               Go to{" "}
-              <span className="font-medium text-slate-700 dark:text-slate-200">
+              <span className="font-semibold text-fg">
                 My Books → Import and Export
               </span>
             </li>
             <li>Click &quot;Export Library&quot;</li>
-            <li>Download the CSV and drop it here</li>
+            <li>Wait for the email, then download the file</li>
+            <li>Come back here and choose that file</li>
           </ol>
-          <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
-            Works with any CSV that has a &quot;Title&quot; column — not just Goodreads.
+          <p className="mt-3 text-sm text-fg-subtle">
+            Any spreadsheet saved as CSV works, as long as it has a
+            &quot;Title&quot; column — it doesn&apos;t have to come from Goodreads.
           </p>
         </div>
 
-        {error && (
-          <p className="text-sm text-rose-600 dark:text-rose-400" role="alert">
-            {error}
-          </p>
-        )}
+        {errorBox}
+        {paywallDialog}
       </div>
     );
   }
@@ -150,56 +185,66 @@ export function ImportClient() {
 
     return (
       <div className="space-y-4">
-        <div className="rounded-2xl bg-white p-5 shadow-sm dark:bg-slate-900">
-          <h2 className="text-lg font-bold">
-            Ready to import {parsed.books.length} book{parsed.books.length !== 1 ? "s" : ""}
+        <LiveRegion message={announcement} />
+
+        <div className="rounded-3xl border-2 border-hairline bg-surface p-5">
+          <h2 className="text-lg font-bold text-fg">
+            Ready to add {parsed.books.length} book{parsed.books.length !== 1 ? "s" : ""}
           </h2>
           {parsed.source === "goodreads" && (
-            <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
-              ✓ Detected Goodreads format
+            <p className="mt-1 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+              ✓ This looks like a Goodreads export
             </p>
           )}
 
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {(["want", "reading", "finished", "dropped"] as const).map((s) => (
-              <div key={s} className="rounded-xl bg-slate-50 p-3 text-center dark:bg-slate-950">
-                <div className="text-xl font-bold">{statusCounts[s]}</div>
-                <div className="text-xs text-slate-500 capitalize">{s === "want" ? "Want to Read" : s}</div>
+              <div
+                key={s}
+                className="rounded-2xl border-2 border-hairline bg-surface-2 p-3 text-center"
+              >
+                <div className="text-2xl font-bold text-fg">{statusCounts[s]}</div>
+                <div className="text-sm capitalize text-fg-muted">
+                  {s === "want" ? "Want to read" : s}
+                </div>
               </div>
             ))}
           </div>
 
           {parsed.skipped > 0 && (
-            <p className="mt-3 text-xs text-slate-400">
-              {parsed.skipped} row{parsed.skipped !== 1 ? "s" : ""} skipped (no title found)
+            <p className="mt-3 text-sm text-fg-subtle">
+              {parsed.skipped} row{parsed.skipped !== 1 ? "s" : ""} skipped — no title found.
             </p>
           )}
 
           {/* Preview list */}
-          <div className="mt-4 max-h-60 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700">
-            <table className="w-full text-left text-xs">
-              <thead className="sticky top-0 bg-slate-50 dark:bg-slate-900">
+          <div className="mt-4 max-h-60 overflow-y-auto rounded-2xl border-2 border-hairline">
+            <table className="w-full text-left text-sm">
+              <caption className="sr-only">
+                Preview of the books about to be added
+              </caption>
+              <thead className="sticky top-0 bg-surface-2">
                 <tr>
-                  <th className="px-3 py-2 font-medium text-slate-500">Title</th>
-                  <th className="px-3 py-2 font-medium text-slate-500">Author</th>
-                  <th className="px-3 py-2 font-medium text-slate-500">Status</th>
+                  <th scope="col" className="px-3 py-2 font-semibold text-fg-muted">Title</th>
+                  <th scope="col" className="px-3 py-2 font-semibold text-fg-muted">Author</th>
+                  <th scope="col" className="px-3 py-2 font-semibold text-fg-muted">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody className="divide-y divide-hairline">
                 {parsed.books.slice(0, 50).map((b, i) => (
                   <tr key={i}>
-                    <td className="max-w-[200px] truncate px-3 py-2 text-slate-700 dark:text-slate-200">
+                    <td className="max-w-[200px] truncate px-3 py-2 text-fg">
                       {b.title}
                     </td>
-                    <td className="max-w-[150px] truncate px-3 py-2 text-slate-500">
+                    <td className="max-w-[150px] truncate px-3 py-2 text-fg-muted">
                       {b.author ?? "—"}
                     </td>
-                    <td className="px-3 py-2 text-slate-500 capitalize">{b.status}</td>
+                    <td className="px-3 py-2 capitalize text-fg-muted">{b.status}</td>
                   </tr>
                 ))}
                 {parsed.books.length > 50 && (
                   <tr>
-                    <td colSpan={3} className="px-3 py-2 text-center text-slate-400">
+                    <td colSpan={3} className="px-3 py-2 text-center text-fg-subtle">
                       …and {parsed.books.length - 50} more
                     </td>
                   </tr>
@@ -209,11 +254,7 @@ export function ImportClient() {
           </div>
         </div>
 
-        {error && (
-          <p className="text-sm text-rose-600 dark:text-rose-400" role="alert">
-            {error}
-          </p>
-        )}
+        {errorBox}
 
         <div className="flex gap-3">
           <button
@@ -223,7 +264,7 @@ export function ImportClient() {
               setStep("upload");
               setError(null);
             }}
-            className="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-medium transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+            className="tap flex-1 rounded-xl border-2 border-hairline text-sm font-semibold text-fg-muted transition hover:bg-surface-2"
           >
             Back
           </button>
@@ -231,33 +272,37 @@ export function ImportClient() {
             type="button"
             onClick={doImport}
             disabled={pending}
-            className="flex-1 rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60"
+            aria-busy={pending}
+            className="tap flex-1 rounded-xl bg-accent text-sm font-semibold text-accent-fg transition hover:brightness-110 disabled:opacity-60"
           >
             {pending
-              ? "Importing…"
-              : `Import ${parsed.books.length} book${parsed.books.length !== 1 ? "s" : ""}`}
+              ? "Adding…"
+              : `Add ${parsed.books.length} book${parsed.books.length !== 1 ? "s" : ""}`}
           </button>
         </div>
+
+        {paywallDialog}
       </div>
     );
   }
 
   // ─── Done Step ───
   return (
-    <div className="rounded-2xl bg-white p-8 text-center shadow-sm dark:bg-slate-900">
+    <div className="rounded-3xl border-2 border-hairline bg-surface p-8 text-center">
+      <LiveRegion message={announcement} />
       <div className="text-5xl" aria-hidden="true">🎉</div>
-      <h2 className="mt-4 text-xl font-bold">Import complete!</h2>
-      <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+      <h2 className="mt-4 text-xl font-bold text-fg">All done</h2>
+      <p className="mt-2 text-fg-muted">
         {result?.imported ?? 0} book{(result?.imported ?? 0) !== 1 ? "s" : ""} added to your shelf.
         {(result?.skipped ?? 0) > 0 && (
-          <> {result!.skipped} already on your shelf (skipped).</>
+          <> {result!.skipped} were already there, so we skipped them.</>
         )}
       </p>
       <a
         href="/shelf"
-        className="mt-6 inline-block rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700"
+        className="tap mt-6 inline-flex items-center justify-center rounded-xl bg-accent px-6 text-sm font-semibold text-accent-fg transition hover:brightness-110"
       >
-        View your shelf →
+        View your shelf
       </a>
     </div>
   );

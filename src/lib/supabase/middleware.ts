@@ -1,8 +1,27 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/auth"];
-const MARKETING_PATHS = ["/", "/features", "/pricing", "/faq"];
+// Reachable without a session. Password recovery must be here or a locked-out
+// reader can never start a reset — they'd be bounced straight back to /login.
+const PUBLIC_PATHS = [
+  "/login",
+  "/signup",
+  "/auth",
+  "/forgot-password",
+  "/update-password",
+];
+const MARKETING_PATHS = [
+  "/",
+  "/features",
+  "/pricing",
+  "/faq",
+  "/privacy",
+  "/terms",
+  "/contact",
+  "/support",
+  "/robots.txt",
+  "/sitemap.xml",
+];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -28,25 +47,33 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const path = request.nextUrl.pathname;
   const isPublic =
     PUBLIC_PATHS.some((p) => path.startsWith(p)) ||
     MARKETING_PATHS.includes(path);
 
-  if (!user && !isPublic) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (user && (path === "/login" || path === "/signup")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+    if (!user && !isPublic) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+
+    if (user && (path === "/login" || path === "/signup")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
+  } catch (err) {
+    if (!isPublic) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
   }
 
   return response;

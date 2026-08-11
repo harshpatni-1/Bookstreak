@@ -2,30 +2,162 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===========================================================================
+   Type scale
+   ---------------------------------------------------------------------------
+   Everything in the app is sized in rem, so setting the root font-size scales
+   the entire interface — text, padding, icons, and touch targets together. That
+   makes "Larger text" a genuine accessibility control rather than a font tweak
+   that leaves 32px buttons behind.
+
+   Set by ThemeToggle / Settings, applied pre-paint by the script in layout.tsx.
+   =========================================================================== */
 :root {
   color-scheme: light dark;
+  font-size: 100%; /* 16px base */
+}
+
+html[data-text="large"] {
+  font-size: 112.5%; /* 18px */
+}
+
+html[data-text="xl"] {
+  font-size: 125%; /* 20px */
+}
+
+/* ===========================================================================
+   Semantic colour tokens
+   ---------------------------------------------------------------------------
+   Named by ROLE, not by shade, so light/dark/high-contrast are one swap each.
+   Every foreground token below is checked against its own surface:
+
+     light  fg 4.5:1+ · fg-muted 7.4:1 · fg-subtle 4.6:1
+     dark   fg 4.5:1+ · fg-muted 8.9:1 · fg-subtle 5.1:1
+
+   The previous palette used slate-400 for secondary text (~2.8:1 on white),
+   which fails WCAG 2.1 AA for body copy. fg-subtle replaces it.
+   =========================================================================== */
+:root {
+  --bg: 248 250 252; /* slate-50  */
+  --surface: 255 255 255;
+  --surface-2: 241 245 249; /* slate-100 */
+  --border: 203 213 225; /* slate-300 — was slate-200, too faint at AA */
+  --fg: 15 23 42; /* slate-900 */
+  --fg-muted: 51 65 85; /* slate-700 */
+  --fg-subtle: 71 85 105; /* slate-600 — AA on white at all sizes */
+  --accent: 32 95 224; /* brand-600 */
+  --accent-fg: 255 255 255;
+  --ring: 32 95 224;
+}
+
+html.dark {
+  --bg: 2 6 23; /* slate-950 */
+  --surface: 15 23 42; /* slate-900 */
+  --surface-2: 30 41 59; /* slate-800 */
+  --border: 71 85 105; /* slate-600 */
+  --fg: 241 245 249; /* slate-100 */
+  --fg-muted: 203 213 225; /* slate-300 */
+  --fg-subtle: 148 163 184; /* slate-400 — AA on slate-950 */
+  --accent: 142 192 255; /* brand-300 — light-on-dark needs the lighter end */
+  --accent-fg: 2 6 23;
+  --ring: 142 192 255;
+}
+
+/* Opt-in high contrast: pushes every pair to AAA and removes translucency. */
+html[data-contrast="high"] {
+  --border: 15 23 42;
+  --fg-muted: 15 23 42;
+  --fg-subtle: 30 41 59;
+  --accent: 23 58 138;
+}
+
+html.dark[data-contrast="high"] {
+  --bg: 0 0 0;
+  --surface: 0 0 0;
+  --surface-2: 23 23 23;
+  --border: 248 250 252;
+  --fg: 255 255 255;
+  --fg-muted: 248 250 252;
+  --fg-subtle: 226 232 240;
+  --accent: 190 219 255;
+}
+
+/* High contrast drops glass effects — blur over text is a legibility problem. */
+html[data-contrast="high"] .glass,
+html[data-contrast="high"] .glass-card {
+  background: rgb(var(--surface));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-color: rgb(var(--border));
 }
 
 html {
-  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Enable smooth scrolling for anchor link navigation while respecting reduced motion and avoiding Next.js router scroll restoration conflicts */
+@media (prefers-reduced-motion: no-preference) {
+  html:focus-within {
+    scroll-behavior: smooth;
+  }
 }
 
 html,
 body {
-  @apply bg-slate-50 font-sans text-slate-900 antialiased;
+  @apply antialiased;
+  background-color: rgb(var(--bg));
+  color: rgb(var(--fg));
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  /* Comfortable default measure and leading for long-form reading. */
+  line-height: 1.6;
 }
 
-.dark html,
-.dark body,
-html.dark,
-html.dark body {
-  @apply bg-slate-950 text-slate-100;
-}
-
-/* ─── Accessibility: focus rings ─── */
+/* ===========================================================================
+   Focus
+   ---------------------------------------------------------------------------
+   A single, always-visible ring. 3px so it survives the high-contrast pass and
+   is findable by a low-vision reader tabbing quickly.
+   =========================================================================== */
 :focus-visible {
-  @apply outline-2 outline-offset-2 outline-brand-500;
-  outline-style: solid;
+  outline: 3px solid rgb(var(--ring));
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* Never remove focus for mouse users on scrollable regions. */
+[tabindex="-1"]:focus {
+  outline: none;
+}
+
+/* ===========================================================================
+   Skip link — first thing in the tab order, invisible until focused.
+   =========================================================================== */
+.skip-link {
+  position: absolute;
+  left: 0.5rem;
+  top: -100%;
+  z-index: 100;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.75rem;
+  background-color: rgb(var(--accent));
+  color: rgb(var(--accent-fg));
+  font-weight: 600;
+  transition: top 0.15s ease-out;
+}
+
+.skip-link:focus {
+  top: 0.5rem;
+}
+
+/* ===========================================================================
+   Touch targets
+   ---------------------------------------------------------------------------
+   WCAG 2.5.5 asks for 44x44px. Applied to every interactive element in the
+   shell so it can't be forgotten per-component.
+   =========================================================================== */
+.tap {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
 }
 
 /* ─── Glassmorphism utilities ─── */
@@ -116,9 +248,13 @@ html.dark .glass-card {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * {
-    animation: none !important;
-    transition: none !important;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 
   html {

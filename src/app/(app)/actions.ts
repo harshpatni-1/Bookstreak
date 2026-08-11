@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { assertCanWrite } from "@/lib/billing/entitlement";
 import {
   addBookSchema,
   updateStatusSchema,
@@ -12,7 +13,7 @@ import {
   deleteSessionSchema,
 } from "@/lib/validation/schemas";
 
-export type ActionResult = { ok: boolean; error?: string };
+export type ActionResult = { ok: boolean; error?: string; paywalled?: boolean };
 export type ImportResult = ActionResult & { imported?: number; skipped?: number };
 
 async function requireUser() {
@@ -24,9 +25,24 @@ async function requireUser() {
   return { supabase, user };
 }
 
+/**
+ * Entitlement gate for actions that create new data.
+ *
+ * This exists to produce a helpful message and an `upgrade` affordance. It is
+ * NOT the security boundary — RLS in 0003_billing.sql blocks the insert even if
+ * this check were bypassed. Reads, deletes, and exports never call it.
+ */
+async function requireEntitlement(): Promise<ActionResult | null> {
+  const reason = await assertCanWrite();
+  return reason ? { ok: false, error: reason, paywalled: true } : null;
+}
+
 export async function addBook(input: unknown): Promise<ActionResult> {
   const parsed = addBookSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message };
+
+  const blocked = await requireEntitlement();
+  if (blocked) return blocked;
 
   try {
     const { supabase, user } = await requireUser();
@@ -110,6 +126,9 @@ export async function importBooks(input: unknown): Promise<ImportResult> {
   const parsed = importBooksSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message };
 
+  const blocked = await requireEntitlement();
+  if (blocked) return blocked;
+
   try {
     const { supabase, user } = await requireUser();
 
@@ -158,6 +177,10 @@ export async function importBooks(input: unknown): Promise<ImportResult> {
 export async function logSession(input: unknown): Promise<ActionResult> {
   const parsed = logSessionSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message };
+
+  const blocked = await requireEntitlement();
+  if (blocked) return blocked;
+
   try {
     const { supabase, user } = await requireUser();
     const d = parsed.data;

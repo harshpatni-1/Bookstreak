@@ -30,7 +30,7 @@ const FAQS = [
   },
   {
     q: "Do you track me or sell my data?",
-    a: "No. There are no ad networks and no third-party trackers, and nothing about your library is used to train AI. Your data sits behind row-level security and is visible only to you.",
+    a: "No. There are no ad networks and no third-party trackers, and nothing about your library is used to train AI. The database itself enforces that only your own account can read your books and reading history, so it's not something we could accidentally leave open.",
   },
   {
     q: "Where do the books come from?",
@@ -41,8 +41,8 @@ const FAQS = [
     a: "Open the log sheet and tap a quick-add button (+10, +25, +50 pages) or enter exact pages, minutes, your current page, and an optional note. Your book's progress and streak update automatically.",
   },
   {
-    q: "Can I use it on my phone?",
-    a: "Absolutely — it's mobile-first and installable as a PWA, so you can add it to your home screen and open it like a native app.",
+    q: "Is there a mobile app?",
+    a: "Apps for Android and iPhone are launching soon. In the meantime BookStreak already works like an app on your phone — open it in your browser, tap your browser's menu, and choose \"Add to Home Screen\". It then opens full-screen from your home screen, with no app store needed. When the apps arrive, your reading history will already be there.",
   },
   {
     q: "Can I import from Goodreads?",

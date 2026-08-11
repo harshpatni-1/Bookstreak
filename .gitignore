@@ -1,7 +1,10 @@
 node_modules
 .next
 out
-.env*.local
+# Secrets. Only .env.local.example is committed — it holds placeholders.
+.env
+.env.*
+!.env.local.example
 .DS_Store
 *.tsbuildinfo
 next-env.d.ts

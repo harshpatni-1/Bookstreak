@@ -38,7 +38,7 @@ const GROUPS = [
     items: [
       ["🔒", "Privacy-first", "No ad networks, no third-party trackers, no AI on your data. Row-level security means only you see your library."],
       ["🌙", "Dark mode", "A polished dark theme that remembers your choice and applies before first paint — no flash."],
-      ["📱", "Mobile-first PWA", "Designed for your phone first and installable to your home screen. Fast everywhere."],
+      ["📱", "Made for your phone", "Designed for your phone first. Add it to your home screen and it opens like an app. Fast everywhere."],
     ],
   },
 ];

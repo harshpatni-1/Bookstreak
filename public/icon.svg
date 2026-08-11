@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+
+    <linearGradient id="brandBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+
+    <linearGradient id="flameGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="50%" stop-color="#ff5722"/>
+      <stop offset="100%" stop-color="#ef4444"/>
+    </linearGradient>
+
+    <linearGradient id="pageWhite" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+
+    <filter id="badgeShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="120" fill="url(#bgGrad)"/>
+
+  <g transform="translate(35.84, 35.84) scale(0.86)" filter="url(#badgeShadow)">
+    <path d="M 50 370 C 130 330 200 355 256 375 C 312 355 382 330 462 370 V 170 C 382 130 312 155 256 175 C 200 155 130 130 50 170 Z"
+          fill="#090d16" opacity="0.4"/>
+
+    <path d="M 56 354 C 130 318 200 342 256 364 V 164 C 200 142 130 118 56 154 Z"
+          fill="url(#pageWhite)"/>
+
+    <rect x="96" y="200" width="116" height="12" rx="6" fill="#cbd5e1"/>
+    <rect x="96" y="234" width="116" height="12" rx="6" fill="#cbd5e1"/>
+    <rect x="96" y="268" width="80" height="12" rx="6" fill="#94a3b8"/>
+
+    <path d="M 456 354 C 382 318 312 342 256 364 V 164 C 312 142 382 118 456 154 Z"
+          fill="url(#brandBlue)"/>
+
+    <rect x="300" y="200" width="116" height="12" rx="6" fill="#93c5fd" opacity="0.9"/>
+    <rect x="300" y="234" width="116" height="12" rx="6" fill="#93c5fd" opacity="0.9"/>
+    <rect x="336" y="268" width="80" height="12" rx="6" fill="#60a5fa" opacity="0.9"/>
+
+    <path d="M 256 164 V 364" stroke="#1d4ed8" stroke-width="8" stroke-linecap="round"/>
+
+    <g transform="translate(256, 170)">
+      <path d="M 0 -85 C 32 -35 50 0 50 32 C 50 62 26 84 0 84 C -26 84 -50 62 -50 32 C -50 0 -32 -35 0 -85 Z"
+            fill="#0f172a" opacity="0.85"/>
+
+      <path d="M 0 -76 C 26 -30 42 0 42 28 C 42 54 22 74 0 74 C -22 74 -42 54 -42 28 C -42 0 -26 -30 0 -76 Z"
+            fill="url(#flameGrad)"/>
+
+      <path d="M 0 -44 C 16 -16 25 0 25 16 C 25 32 14 42 0 42 C -14 42 -25 32 -25 16 C -25 0 -16 -16 0 -44 Z"
+            fill="#fef08a"/>
+    </g>
+  </g>
+</svg>

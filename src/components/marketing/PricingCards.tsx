@@ -7,7 +7,7 @@ const FEATURES = [
   "One-tap reading log",
   "Full stats & 17-week heatmap",
   "Shareable streak card",
-  "Dark mode & installable PWA",
+  "Dark mode, and installs to your home screen",
   "Goodreads / CSV import",
   "Privacy-first — no ads, no tracking",
 ];

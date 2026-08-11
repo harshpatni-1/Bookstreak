@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { logSession } from "@/app/(app)/actions";
 import { localToday, localYesterday } from "@/lib/date";
 import { burstConfetti } from "./confetti";
+import { useDialog } from "./useDialog";
+import { LiveRegion, AlertIcon } from "./icons";
+import { PaywallDialog, usePaywall } from "./billing/PaywallDialog";
 import type { Book } from "@/lib/types";
 
 const QUICK_PAGES = [5, 10, 25, 50];
@@ -27,7 +30,11 @@ export function LogReadingSheet({
   const [note, setNote] = useState("");
   const [date, setDate] = useState(localToday());
   const [error, setError] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
   const [pending, start] = useTransition();
+  const paywall = usePaywall();
+
+  const panelRef = useDialog(true, onClose);
 
   const today = localToday();
   const yesterday = localYesterday();
@@ -44,10 +51,20 @@ export function LogReadingSheet({
         note: note.trim() || undefined,
         session_date: date,
       });
+
+      // A blocked write isn't an error the reader caused — show the way to fix
+      // it rather than a red sentence.
+      if (paywall.check(res)) return;
+
       if (!res.ok) {
-        setError(res.error ?? "Something went wrong");
+        setError(res.error ?? "Something went wrong. Please try again.");
         return;
       }
+
+      // Confetti is visual only. Announce the same news for screen readers.
+      setAnnouncement(
+        `Saved. ${pagesNum} ${pagesNum === 1 ? "page" : "pages"} logged for ${book.title}.`
+      );
       burstConfetti();
       router.refresh();
       if (onSuccess) onSuccess();
@@ -55,146 +72,189 @@ export function LogReadingSheet({
     });
   }
 
+  const dateBtn = (selected: boolean) =>
+    `tap rounded-xl px-3 py-1.5 text-sm font-medium transition ${
+      selected
+        ? "bg-accent text-accent-fg"
+        : "border-2 border-hairline text-fg-muted hover:bg-surface-2"
+    }`;
+
+  const field =
+    "mt-1 w-full rounded-xl border-2 border-hairline bg-transparent px-3 py-2.5 text-fg outline-none transition focus:border-accent";
+
   return (
-    <div
-      className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Log reading for ${book.title}`}
-    >
-      <div
-        className="w-full max-w-md animate-pop-in rounded-t-2xl bg-white p-6 dark:bg-slate-900 sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-lg font-bold">Log reading</h2>
-        <p className="mt-0.5 truncate text-sm text-slate-500">{book.title}</p>
+    <>
+      <LiveRegion message={announcement} />
 
-        {/* One-tap quick add — the fast path */}
-        <p className="mt-4 text-sm font-medium text-slate-600 dark:text-slate-300">
-          Quick add pages
-        </p>
-        <div className="mt-2 grid grid-cols-4 gap-2">
-          {QUICK_PAGES.map((n) => (
+      <div className="fixed inset-0 z-40 flex items-end justify-center sm:items-center">
+        <div
+          className="absolute inset-0 bg-slate-900/60"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="log-title"
+          tabIndex={-1}
+          className="relative max-h-[92vh] w-full max-w-md animate-pop-in overflow-y-auto rounded-t-3xl bg-surface p-6 shadow-2xl outline-none sm:rounded-3xl"
+        >
+          <h2 id="log-title" className="text-xl font-bold text-fg">
+            Log reading
+          </h2>
+          <p className="mt-0.5 truncate text-sm text-fg-subtle">{book.title}</p>
+
+          {/* One-tap quick add — the fast path most people use. */}
+          <p className="mt-5 text-sm font-semibold text-fg-muted">
+            How many pages did you read?
+          </p>
+          <div className="mt-2 grid grid-cols-4 gap-2">
+            {QUICK_PAGES.map((n) => (
+              <button
+                key={n}
+                type="button"
+                disabled={pending}
+                onClick={() => submit(n)}
+                aria-label={`Log ${n} pages and save`}
+                className="tap rounded-xl border-2 border-accent/30 bg-accent/10 py-3 text-lg font-bold text-accent transition active:scale-95 hover:bg-accent/20 disabled:opacity-60"
+              >
+                +{n}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-fg-subtle">
+            Tap a number to save straight away.
+          </p>
+
+          <details className="mt-5 text-sm">
+            <summary className="tap inline-flex cursor-pointer select-none items-center font-medium text-fg-muted hover:text-fg">
+              Add more detail (exact page, minutes, note, date)
+            </summary>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <label className="block text-sm font-medium text-fg-muted">
+                Pages read
+                <input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={pages}
+                  onChange={(e) => setPages(e.target.value)}
+                  className={field}
+                />
+              </label>
+              <label className="block text-sm font-medium text-fg-muted">
+                Minutes
+                <input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={minutes}
+                  onChange={(e) => setMinutes(e.target.value)}
+                  className={field}
+                />
+              </label>
+            </div>
+
+            <label className="mt-3 block text-sm font-medium text-fg-muted">
+              Page you stopped on (optional)
+              <input
+                type="number"
+                min={0}
+                inputMode="numeric"
+                value={endPage}
+                onChange={(e) => setEndPage(e.target.value)}
+                placeholder={book.total_pages ? `of ${book.total_pages}` : undefined}
+                className={field}
+              />
+            </label>
+
+            <label className="mt-3 block text-sm font-medium text-fg-muted">
+              Note or quote (optional)
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={2}
+                maxLength={2000}
+                className={`${field} resize-none`}
+              />
+            </label>
+
+            {/* Backdating — log a day you forgot, in one tap. */}
+            <fieldset className="mt-4">
+              <legend className="text-sm font-medium text-fg-muted">
+                When did you read?
+              </legend>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDate(today)}
+                  aria-pressed={date === today}
+                  className={dateBtn(date === today)}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDate(yesterday)}
+                  aria-pressed={date === yesterday}
+                  className={dateBtn(date === yesterday)}
+                >
+                  Yesterday
+                </button>
+                <label className="sr-only" htmlFor="log-date">
+                  Or pick another date
+                </label>
+                <input
+                  id="log-date"
+                  type="date"
+                  value={date}
+                  max={today}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="tap rounded-xl border-2 border-hairline bg-transparent px-3 text-sm text-fg outline-none transition focus:border-accent"
+                />
+              </div>
+            </fieldset>
+          </details>
+
+          {error && (
+            <p
+              role="alert"
+              className="mt-4 flex items-start gap-2 rounded-xl border-2 border-rose-300 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800 dark:border-rose-500/50 dark:bg-rose-500/10 dark:text-rose-200"
+            >
+              <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
+              {error}
+            </p>
+          )}
+
+          <div className="mt-6 flex gap-3">
             <button
-              key={n}
               type="button"
+              onClick={onClose}
+              className="tap flex-1 rounded-xl border-2 border-hairline text-sm font-semibold text-fg-muted transition hover:bg-surface-2"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => submit()}
               disabled={pending}
-              onClick={() => submit(n)}
-              className="rounded-xl border border-brand-200 bg-brand-50 py-3 text-base font-bold text-brand-700 transition hover:bg-brand-100 disabled:opacity-60 dark:border-brand-800 dark:bg-brand-900/30 dark:text-brand-200"
+              aria-busy={pending}
+              className="tap flex-1 rounded-xl bg-accent text-sm font-semibold text-accent-fg transition hover:brightness-110 disabled:opacity-60"
             >
-              +{n}
+              {pending ? "Saving…" : "Save"}
             </button>
-          ))}
-        </div>
-
-        <details className="mt-4 text-sm">
-          <summary className="cursor-pointer select-none text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
-            More options (exact page, minutes, note, date)
-          </summary>
-
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <label className="text-sm">
-              Pages read
-              <input
-                type="number"
-                min={0}
-                inputMode="numeric"
-                value={pages}
-                onChange={(e) => setPages(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-transparent px-3 py-2 outline-none focus:border-brand-500 dark:border-slate-700"
-              />
-            </label>
-            <label className="text-sm">
-              Minutes
-              <input
-                type="number"
-                min={0}
-                inputMode="numeric"
-                value={minutes}
-                onChange={(e) => setMinutes(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-transparent px-3 py-2 outline-none focus:border-brand-500 dark:border-slate-700"
-              />
-            </label>
           </div>
-
-          <label className="mt-3 block text-sm">
-            Current page (optional)
-            <input
-              type="number"
-              min={0}
-              inputMode="numeric"
-              value={endPage}
-              onChange={(e) => setEndPage(e.target.value)}
-              placeholder={book.total_pages ? `of ${book.total_pages}` : undefined}
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-transparent px-3 py-2 outline-none focus:border-brand-500 dark:border-slate-700"
-            />
-          </label>
-
-          <label className="mt-3 block text-sm">
-            Note / quote (optional)
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={2}
-              maxLength={2000}
-              className="mt-1 w-full resize-none rounded-lg border border-slate-300 bg-transparent px-3 py-2 outline-none focus:border-brand-500 dark:border-slate-700"
-            />
-          </label>
-
-          {/* Backdating — log a day you forgot, in one tap */}
-          <p className="mt-3 text-sm">When did you read?</p>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setDate(today)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
-                date === today
-                  ? "bg-brand-600 text-white"
-                  : "border border-slate-300 dark:border-slate-700"
-              }`}
-            >
-              Today
-            </button>
-            <button
-              type="button"
-              onClick={() => setDate(yesterday)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
-                date === yesterday
-                  ? "bg-brand-600 text-white"
-                  : "border border-slate-300 dark:border-slate-700"
-              }`}
-            >
-              Yesterday
-            </button>
-            <input
-              type="date"
-              value={date}
-              max={today}
-              onChange={(e) => setDate(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-transparent px-2 py-1.5 text-xs dark:border-slate-700"
-            />
-          </div>
-        </details>
-
-        {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
-
-        <div className="mt-5 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-medium dark:border-slate-700"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => submit()}
-            disabled={pending}
-            className="flex-1 rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60"
-          >
-            {pending ? "Saving…" : "Save & keep streak 🔥"}
-          </button>
         </div>
       </div>
-    </div>
+
+      <PaywallDialog
+        open={paywall.isBlocked}
+        onClose={paywall.dismiss}
+        message={paywall.paywallMessage ?? undefined}
+      />
+    </>
   );
 }

@@ -16,11 +16,11 @@ const LANDING_FAQS = [
   },
   {
     q: "Do you track me or sell my data?",
-    a: "No. There are no ad networks, no third-party trackers, and nothing about your library is used to train AI. Your data is protected by row-level security — only you can see it.",
+    a: "No. There are no ad networks, no third-party trackers, and nothing about your library is used to train AI. The database itself enforces that only your own account can read your books and reading history — it isn't a setting we could forget to switch on.",
   },
   {
-    q: "Can I use it on my phone?",
-    a: "Yes — it's designed phone-first and installable to your home screen like a real app. Works great on desktop too.",
+    q: "Is there a mobile app?",
+    a: "Apps for Android and iPhone are launching soon. For now, open BookStreak in your phone's browser and choose \"Add to Home Screen\" — it then opens full-screen just like an app. Your history carries over when the apps arrive.",
   },
   {
     q: "Can I import from Goodreads?",
@@ -183,7 +183,7 @@ export default function LandingPage() {
             <Feature emoji="🗂️" title="A real bookshelf" body="Four statuses, drag-and-drop, one-click moves, and instant filtering. Your library, organized the way you think." />
             <Feature emoji="📈" title="Stats worth checking" body="Books finished, pages read, reading velocity, hours, and a genre breakdown — all on one page, always up to date." />
             <Feature emoji="🟩" title="Contribution heatmap" body="A 17-week grid of your reading days, just like GitHub. Watch the squares light up — it's weirdly motivating." />
-            <Feature emoji="🌙" title="Dark mode & mobile-first" body="Designed for the phone in your hand at midnight. Installable as a PWA on your home screen. Fast everywhere." />
+            <Feature emoji="🌙" title="Dark mode & made for phones" body="Designed for the phone in your hand at midnight. Add it to your home screen and it opens like an app. Fast everywhere." />
           </div>
         </AnimatedSection>
       </section>
@@ -197,8 +197,8 @@ export default function LandingPage() {
             </h2>
             <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-600 dark:text-slate-300">
               No ad networks. No third-party trackers. No AI training on your
-              library. Your data lives behind row-level security, visible only to
-              you. The basics, done exceptionally well.
+              library. The database itself makes sure only you can see your
+              books. The basics, done exceptionally well.
             </p>
           </div>
         </section>
