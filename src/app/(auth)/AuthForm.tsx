@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useActionState } from "react";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
-import { signIn, signUp, type AuthState } from "./actions";
+import { signIn, signUp, demoSignIn, type AuthState } from "./actions";
 
 function Submit({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -19,10 +19,17 @@ function Submit({ label }: { label: string }) {
   );
 }
 
-export function AuthForm({ mode }: { mode: "login" | "signup" }) {
+export function AuthForm({
+  mode,
+  initialError,
+}: {
+  mode: "login" | "signup";
+  initialError?: string;
+}) {
   const action = mode === "login" ? signIn : signUp;
   const [state, formAction] = useActionState<AuthState, FormData>(action, undefined);
   const [showPassword, setShowPassword] = useState(false);
+  const activeError = state?.error || (state === undefined ? initialError : undefined);
 
   return (
     <div className="mx-auto mt-20 w-full max-w-sm rounded-2xl bg-white p-8 shadow-sm dark:bg-slate-900">
@@ -85,14 +92,31 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           </div>
         </div>
 
-        {state?.error && (
+        {activeError && (
           <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">
-            {state.error}
+            {activeError}
+          </p>
+        )}
+
+        {state?.message && (
+          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+            {state.message}
           </p>
         )}
 
         <Submit label={mode === "login" ? "Sign in" : "Create account"} />
       </form>
+
+      <div className="mt-4 border-t border-slate-200 pt-4 dark:border-slate-800">
+        <form action={demoSignIn}>
+          <button
+            type="submit"
+            className="w-full rounded-lg border border-slate-300 bg-slate-50 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+          >
+            ⚡ Try Demo Mode (Instant Sign In)
+          </button>
+        </form>
+      </div>
 
       <p className="mt-5 text-center text-sm text-slate-500">
         {mode === "login" ? (

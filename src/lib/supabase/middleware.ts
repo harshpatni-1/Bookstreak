@@ -33,12 +33,24 @@ export async function updateSession(request: NextRequest) {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const isUnconfigured = !supabaseUrl || !supabaseAnonKey || supabaseUrl.includes("YOUR-PROJECT");
 
-  if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes("YOUR-PROJECT")) {
+  // Helper to preserve cookies across redirects
+  const createRedirect = (targetPath: string) => {
+    const url = request.nextUrl.clone();
+    url.pathname = targetPath;
+    const redirectResponse = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((c) => {
+      redirectResponse.cookies.set(c.name, c.value, c);
+    });
+    return redirectResponse;
+  };
+
+  if (isUnconfigured) {
+    // If Supabase is not configured yet, don't trap the user in redirect loops.
+    // Allow public pages to load and redirect protected routes to /login.
     if (!isPublic) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      return NextResponse.redirect(url);
+      return createRedirect("/login");
     }
     return response;
   }
@@ -70,21 +82,15 @@ export async function updateSession(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user && !isPublic) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      return NextResponse.redirect(url);
+      return createRedirect("/login");
     }
 
     if (user && (path === "/login" || path === "/signup")) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
+      return createRedirect("/dashboard");
     }
   } catch (err) {
     if (!isPublic) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      return NextResponse.redirect(url);
+      return createRedirect("/login");
     }
   }
 

@@ -44,14 +44,14 @@ export function ResetPasswordForm() {
         </div>
 
         {state?.error && (
-          <p
-            className={`rounded-lg px-3 py-2 text-sm ${
-              state.error.startsWith("Check your email")
-                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400"
-                : "bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300"
-            }`}
-          >
+          <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">
             {state.error}
+          </p>
+        )}
+
+        {state?.message && (
+          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400">
+            {state.message}
           </p>
         )}
 
