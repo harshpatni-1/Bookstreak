@@ -76,7 +76,10 @@ export function AppShell({
               Signed in as {displayName}
             </p>
             <form action={signOut}>
-              <button className="tap w-full rounded-xl border-2 border-hairline text-sm font-medium text-fg-muted transition-colors hover:bg-surface-2">
+              <button
+                type="submit"
+                className="tap w-full rounded-xl border-2 border-hairline py-2 text-sm font-medium text-fg-muted transition-colors hover:bg-surface-2"
+              >
                 Sign out
               </button>
             </form>

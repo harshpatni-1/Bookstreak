@@ -24,6 +24,28 @@ export async function GET(request: NextRequest) {
       const supabase = await createClient();
       const { error } = await supabase.auth.exchangeCodeForSession(code);
       if (!error) {
+        // If the user requested password reset/update, send them directly there
+        if (next.startsWith("/update-password")) {
+          return NextResponse.redirect(`${origin}${next}`);
+        }
+
+        // Check if user is onboarded
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("onboarded")
+            .eq("id", user.id)
+            .maybeSingle();
+
+          if (!profile || !profile.onboarded) {
+            return NextResponse.redirect(`${origin}/onboarding`);
+          }
+        }
+
         return NextResponse.redirect(`${origin}${next}`);
       }
     } catch {
@@ -32,4 +54,5 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`);
+
 }

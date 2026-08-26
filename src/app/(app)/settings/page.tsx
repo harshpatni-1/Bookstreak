@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { signOut } from "@/app/(auth)/actions";
 import { getEntitlement } from "@/lib/billing/entitlement";
 import { DisplayPrefs } from "@/components/ThemeToggle";
 import { SettingsForm } from "./SettingsForm";
@@ -107,11 +108,27 @@ export default async function SettingsPage() {
       >
         <Link
           href="/settings/billing"
-          className="tap inline-flex items-center justify-center rounded-xl border-2 border-hairline px-5 text-sm font-semibold text-fg-muted transition hover:bg-surface-2"
+          className="tap inline-flex items-center justify-center rounded-xl border-2 border-hairline px-5 py-2.5 text-sm font-semibold text-fg-muted transition hover:bg-surface-2"
         >
           View plan details
         </Link>
       </Section>
+
+      <Section
+        id="account"
+        title="Account"
+        description={`Signed in as ${user.email ?? profile?.display_name ?? "Reader"}`}
+      >
+        <form action={signOut}>
+          <button
+            type="submit"
+            className="tap inline-flex items-center justify-center rounded-xl border-2 border-rose-200 bg-rose-50 px-5 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 dark:border-rose-500/30 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/70"
+          >
+            Sign out of BookStreak
+          </button>
+        </form>
+      </Section>
     </div>
   );
 }
+

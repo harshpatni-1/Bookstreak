@@ -1,8 +1,8 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
 import { credentialsSchema } from "@/lib/validation/schemas";
 
 export type AuthState = { error?: string; message?: string } | undefined;
@@ -145,10 +145,63 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   redirect("/onboarding");
 }
 
+export async function signInWithGoogle(nextUrl?: string): Promise<{ error?: string } | void> {
+  const siteUrl = getSiteUrl();
+  const next = nextUrl || "/dashboard";
+  let redirectUrl: string | null = null;
+
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(next)}`,
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
+    });
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    if (data?.url) {
+      redirectUrl = data.url;
+    }
+  } catch (err: any) {
+    if (err?.message?.includes("Supabase is not configured")) {
+      return {
+        error: "Supabase environment variables are missing in your deployment environment.",
+      };
+    }
+    if (err?.message?.includes("fetch failed") || err?.message?.includes("ENOTFOUND")) {
+      return {
+        error: "Cannot connect to Supabase. Please check your Supabase project status and NEXT_PUBLIC_SUPABASE_URL.",
+      };
+    }
+    return { error: err?.message ?? "Failed to initiate Google sign-in." };
+  }
+
+  if (redirectUrl) {
+    redirect(redirectUrl);
+  }
+}
+
 export async function signOut() {
   try {
     const cookieStore = await cookies();
     cookieStore.delete("bs-demo-session");
+
+    // Proactively clear Supabase auth cookies
+    const allCookies = cookieStore.getAll();
+    for (const c of allCookies) {
+      if (c.name.startsWith("sb-") || c.name.includes("auth-token")) {
+        cookieStore.delete(c.name);
+      }
+    }
+
     const supabase = await createClient();
     await supabase.auth.signOut();
   } catch {
@@ -156,3 +209,4 @@ export async function signOut() {
   }
   redirect("/login");
 }
+
