@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useActionState } from "react";
 import Link from "next/link";
-import { useFormStatus } from "react-dom";
-import { signIn, signUp, signInWithGoogle, type AuthState } from "./actions";
+import { createClient } from "@/lib/supabase/client";
 
 function GoogleIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
@@ -29,19 +27,6 @@ function GoogleIcon({ className = "h-5 w-5" }: { className?: string }) {
   );
 }
 
-function Submit({ label }: { label: string }) {
-  const { pending } = useFormStatus();
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="tap w-full rounded-xl bg-accent py-3 font-semibold text-accent-fg transition hover:opacity-90 disabled:opacity-60"
-    >
-      {pending ? "Please wait…" : label}
-    </button>
-  );
-}
-
 export function AuthForm({
   mode,
   initialError,
@@ -49,33 +34,170 @@ export function AuthForm({
   mode: "login" | "signup";
   initialError?: string;
 }) {
-  const action = mode === "login" ? signIn : signUp;
-  const [state, formAction] = useActionState<AuthState, FormData>(action, undefined);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [googleError, setGoogleError] = useState<string | null>(null);
-
-  const activeError = googleError || state?.error || (state === undefined ? initialError : undefined);
+  const [error, setError] = useState<string | null>(initialError || null);
+  const [message, setMessage] = useState<string | null>(null);
 
   const handleGoogleSignIn = async () => {
     try {
       setGoogleLoading(true);
-      setGoogleError(null);
-      const res = await signInWithGoogle("/dashboard");
-      if (res && res.error) {
-        setGoogleError(res.error);
+      setError(null);
+      setMessage(null);
+
+      const supabase = createClient();
+      const origin =
+        typeof window !== "undefined"
+          ? window.location.origin
+          : process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
+      const { data, error: authError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${origin}/auth/callback?next=/dashboard`,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
+        },
+      });
+
+      if (authError) {
+        const msg = authError.message.toLowerCase();
+        if (msg.includes("provider is not enabled") || msg.includes("unsupported provider") || msg.includes("validation_failed")) {
+          setError(
+            "Google sign-in is not enabled yet in your Supabase authentication settings. Please sign in with your email."
+          );
+        } else {
+          setError("Google sign-in is currently unavailable. Please try again or use email sign in.");
+        }
         setGoogleLoading(false);
+      } else if (data?.url) {
+        window.location.href = data.url;
       }
     } catch (err: any) {
-      setGoogleError(err?.message || "Could not connect to Google sign in.");
+      setError("Unable to connect to Google sign-in. Please try again or use email sign in.");
       setGoogleLoading(false);
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      setError("Please fill in both email and password.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const supabase = createClient();
+      const origin =
+        typeof window !== "undefined"
+          ? window.location.origin
+          : process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
+      if (mode === "login") {
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (signInError) {
+          const msg = signInError.message.toLowerCase();
+          if (
+            msg.includes("invalid login credentials") ||
+            msg.includes("invalid_grant") ||
+            msg.includes("user not found")
+          ) {
+            setError(
+              "Incorrect email or password. If you don't have an account yet, please create one below."
+            );
+          } else if (msg.includes("email not confirmed")) {
+            setError(
+              "Your email is not verified yet. Please check your inbox or spam folder for the verification link."
+            );
+          } else if (msg.includes("rate limit") || msg.includes("too many requests")) {
+            setError("Too many sign-in attempts. Please wait a minute and try again.");
+          } else {
+            setError("Unable to sign in. Please check your details and try again.");
+          }
+          setLoading(false);
+          return;
+        }
+
+        // Successfully signed in - check if onboarding is needed
+        if (data?.user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("onboarded")
+            .eq("id", data.user.id)
+            .maybeSingle();
+
+          if (!profile || !profile.onboarded) {
+            window.location.href = "/onboarding";
+            return;
+          }
+        }
+        window.location.href = "/dashboard";
+      } else {
+        // Sign Up
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${origin}/auth/callback?next=/onboarding`,
+          },
+        });
+
+        if (signUpError) {
+          const msg = signUpError.message.toLowerCase();
+          if (msg.includes("already registered") || msg.includes("already exists") || msg.includes("user_already_exists")) {
+            setError("An account with this email already exists. Please sign in instead.");
+          } else if (msg.includes("rate limit") || msg.includes("too many requests")) {
+            setError("Too many signup attempts. Please wait a minute and try again.");
+          } else if (msg.includes("valid email") || msg.includes("invalid email")) {
+            setError("Please enter a valid email address.");
+          } else {
+            setError("Could not create account. Please try again or sign in.");
+          }
+          setLoading(false);
+          return;
+        }
+
+        if (!data.session) {
+          setMessage(
+            "Account created! Please check your email to confirm your account (or log in directly if email verification is turned off in your project)."
+          );
+          setLoading(false);
+        } else {
+          window.location.href = "/onboarding";
+        }
+      }
+    } catch (err: any) {
+      setError(
+        "Connection error: Could not reach the server. Please check your internet connection and try again."
+      );
+      setLoading(false);
+    }
+  };
+
+
   return (
     <div className="mx-auto mt-12 w-full max-w-md rounded-3xl border-2 border-hairline bg-surface p-8 shadow-sm">
       <div className="text-center">
-        <span className="text-4xl" aria-hidden="true">📖</span>
+        <span className="text-4xl" aria-hidden="true">
+          📖
+        </span>
         <h1 className="mt-3 text-2xl font-bold tracking-tight text-fg">
           {mode === "login" ? "Welcome back" : "Start your reading streak"}
         </h1>
@@ -91,7 +213,7 @@ export function AuthForm({
         <button
           type="button"
           onClick={handleGoogleSignIn}
-          disabled={googleLoading}
+          disabled={googleLoading || loading}
           className="tap flex w-full items-center justify-center gap-3 rounded-xl border-2 border-hairline bg-surface-2 py-3 text-sm font-semibold text-fg transition hover:bg-surface-3 disabled:opacity-60"
         >
           <GoogleIcon className="h-5 w-5 shrink-0" />
@@ -107,7 +229,7 @@ export function AuthForm({
         </span>
       </div>
 
-      <form action={formAction} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-fg" htmlFor="email">
             Email address
@@ -116,6 +238,8 @@ export function AuthForm({
             id="email"
             name="email"
             type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
             placeholder="you@example.com"
             required
@@ -143,6 +267,8 @@ export function AuthForm({
               id="password"
               name="password"
               type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               autoComplete={mode === "login" ? "current-password" : "new-password"}
               placeholder="••••••••"
               required
@@ -160,19 +286,29 @@ export function AuthForm({
           </div>
         </div>
 
-        {activeError && (
+        {error && (
           <div className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-950/40 dark:text-rose-200">
-            {activeError}
+            {error}
           </div>
         )}
 
-        {state?.message && (
+        {message && (
           <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-950/40 dark:text-emerald-200">
-            {state.message}
+            {message}
           </div>
         )}
 
-        <Submit label={mode === "login" ? "Sign in with email" : "Create account"} />
+        <button
+          type="submit"
+          disabled={loading || googleLoading}
+          className="tap w-full rounded-xl bg-accent py-3 font-semibold text-accent-fg transition hover:opacity-90 disabled:opacity-60"
+        >
+          {loading
+            ? "Please wait…"
+            : mode === "login"
+            ? "Sign in with email"
+            : "Create account"}
+        </button>
       </form>
 
       <p className="mt-6 text-center text-sm text-fg-muted">
@@ -195,4 +331,5 @@ export function AuthForm({
     </div>
   );
 }
+
 

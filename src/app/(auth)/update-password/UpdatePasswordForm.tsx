@@ -1,52 +1,74 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { useFormStatus } from "react-dom";
-import { updatePassword, type AuthState } from "../actions";
-
-function Submit() {
-  const { pending } = useFormStatus();
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="w-full rounded-lg bg-brand-600 py-2.5 font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60"
-    >
-      {pending ? "Updating…" : "Update password"}
-    </button>
-  );
-}
+import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 export function UpdatePasswordForm() {
-  const [state, formAction] = useActionState<AuthState, FormData>(updatePassword, undefined);
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password) return;
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const supabase = createClient();
+      const { error: updateError } = await supabase.auth.updateUser({ password });
+      if (updateError) {
+        setError(updateError.message);
+        setLoading(false);
+      } else {
+        window.location.href = "/dashboard";
+      }
+    } catch (err: any) {
+      setError(err?.message || "Failed to update password.");
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="mx-auto mt-20 w-full max-w-sm rounded-2xl bg-white p-8 shadow-sm dark:bg-slate-900">
-      <h1 className="text-2xl font-bold tracking-tight">Set new password</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        Please enter your new password below.
-      </p>
+    <div className="mx-auto mt-12 w-full max-w-md rounded-3xl border-2 border-hairline bg-surface p-8 shadow-sm">
+      <div className="text-center">
+        <span className="text-4xl" aria-hidden="true">
+          🔒
+        </span>
+        <h1 className="mt-3 text-2xl font-bold tracking-tight text-fg">Set new password</h1>
+        <p className="mt-1 text-sm text-fg-muted">
+          Please enter your new password below (minimum 8 characters).
+        </p>
+      </div>
 
-      <form action={formAction} className="mt-6 space-y-4">
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div>
-          <label className="text-sm font-medium" htmlFor="password">
+          <label className="block text-sm font-medium text-fg" htmlFor="password">
             New Password
           </label>
-          <div className="relative mt-1">
+          <div className="relative mt-1.5">
             <input
               id="password"
               name="password"
               type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
+              placeholder="••••••••"
               required
               minLength={8}
-              className="w-full rounded-lg border border-slate-300 bg-transparent px-3 py-2 pr-10 outline-none focus:border-brand-500 dark:border-slate-700"
+              className="w-full rounded-xl border-2 border-hairline bg-surface px-3.5 py-2.5 pr-12 text-sm text-fg outline-none transition focus:border-accent"
             />
             <button
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              className="tap absolute right-2.5 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-medium text-fg-subtle hover:text-fg"
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? "Hide" : "Show"}
@@ -54,14 +76,21 @@ export function UpdatePasswordForm() {
           </div>
         </div>
 
-        {state?.error && (
-          <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">
-            {state.error}
-          </p>
+        {error && (
+          <div className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-950/40 dark:text-rose-200">
+            {error}
+          </div>
         )}
 
-        <Submit />
+        <button
+          type="submit"
+          disabled={loading}
+          className="tap w-full rounded-xl bg-accent py-3 font-semibold text-accent-fg transition hover:opacity-90 disabled:opacity-60"
+        >
+          {loading ? "Updating password…" : "Update password"}
+        </button>
       </form>
     </div>
   );
 }
+

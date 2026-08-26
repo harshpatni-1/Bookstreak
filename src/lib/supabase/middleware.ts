@@ -21,6 +21,8 @@ const MARKETING_PATHS = [
   "/support",
   "/robots.txt",
   "/sitemap.xml",
+  "/manifest.webmanifest",
+  "/manifest.json",
 ];
 
 export async function updateSession(request: NextRequest) {
@@ -29,11 +31,28 @@ export async function updateSession(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isPublic =
     PUBLIC_PATHS.some((p) => path.startsWith(p)) ||
-    MARKETING_PATHS.includes(path);
+    MARKETING_PATHS.includes(path) ||
+    path.endsWith(".webmanifest") ||
+    path.endsWith(".png") ||
+    path.endsWith(".svg") ||
+    path.endsWith(".ico") ||
+    path.endsWith(".jpg");
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.NEXT_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    "https://dyyhiclpffoicgjdnvmc.supabase.co";
+
+  const supabaseAnonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5eWhpY2xwZmZvaWNnamRudm1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NjQyODIsImV4cCI6MjA5NzM0MDI4Mn0.tUIZ6xrKtYhjtcziIhpr3vMFMu193LBph8RhDqaQNX8";
+
   const isUnconfigured = !supabaseUrl || !supabaseAnonKey || supabaseUrl.includes("YOUR-PROJECT");
+
 
   // Helper to preserve cookies across redirects
   const createRedirect = (targetPath: string) => {
